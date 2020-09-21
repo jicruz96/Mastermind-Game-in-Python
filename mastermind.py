@@ -18,9 +18,10 @@ class MasterMind:
     class Player:
         """ represents a player of the game """
 
-        def __init__(self, name="Mastermind"):
+        def __init__(self, name="Mastermind", cpu=False):
             self.name = name
             self.points = 0
+            self.is_cpu = cpu
 
     def __init__(self):
         """ init """
@@ -58,22 +59,17 @@ class MasterMind:
 
         if mode == "1":
             print("You've chosen Solo Mode! Can you beat a computer?\n")
+            p1 = self.Player(input("Player 1, what's your name? "))
+            p2 = self.Player("the CPU", True)
         elif mode == "2":
             print("You've chosen Multiplayer Mode! Can you beat a human?\n")
-            self.multiplayer = True
+            p1 = self.Player(input("Player 1, what's your name? "))
+            p2 = self.Player(input("Player 2, what's your name? "))
         else:
             print("Unrecognized input. Please enter 1 or 2\n")
             return self.set_players()
 
-        p1_name = input("Player 1, what's your name? ")
-        p1 = self.Player(p1_name)
-        if self.multiplayer is True:
-            p2_name = input("Player 2, what's your name? ")
-        else:
-            p2_name = "the CPU"
-        p2 = self.Player(p2_name)
-
-        input("Press any key to continue ")
+        input("\nPress any key to continue ")
         screen_clear()
         return p1, p2
 
@@ -107,31 +103,33 @@ class MasterMind:
     def mastermind_game(self, rounds, p1, p2):
         """ a game of mastermind """
 
-        current_round = 0
+        current_round = 1
         while current_round <= rounds:
-            print("Round {}!\n\n".format(current_round))
-            print("{} is now the Mastermind!".format(p1.name))
-            self.mastermind_round(p1, p2)
-            sleep(3)
-            screen_clear()
-            self.grid = ""
-            print("Round {}!\n\n".format(current_round))
-            print("{} is now the Mastermind!".format(p2.name))
+            # TOP INNING
+            self.mastermind_round(p1, p2, current_round)
+            current_round += 0.5
+            # BOTTOM INNING
             self.mastermind_round(p2, p1)
-            current_round += 1
+            current_round += 0.5
+
+            # INNING SUMMARY
             print('Rounds left: {}\n'.format(rounds) +
                   'Score:\n' +
                   '\t{}: {}\n'.format(p1.name, p1.points) +
                   '\t{}: {}\n'.format(p2.name, p2.points)
                   )
-            sleep(3)
+            input("\nPress any key to continue ")
             screen_clear()
-            self.grid = ""
 
         self.declare_winner(p1, p2)
 
-    def mastermind_round(self, codebreaker, mastermind):
+    def mastermind_round(self, codebreaker, mastermind, round=None):
         """ a round of mastermind """
+
+        if round is not None:
+            print("Round {}!\n\n".format(round))
+
+        print("{} is the Mastermind!".format(mastermind.name))
 
         solution = self.get_solution(mastermind)
         guesses_left = self.guesses_per_round
@@ -139,13 +137,17 @@ class MasterMind:
         while guesses_left > 1:
 
             print("Guesses left: {:d}\n".format(guesses_left))
-            guess = self.get_code(codebreaker.name)
+            guess = self.get_code(codebreaker)
             black_pegs, white_pegs = self.compare_codes(guess, solution)
             self.print_grid(guess, black_pegs, white_pegs)
 
             if black_pegs == self.code_length:
-                print("{} has won the round!".format(codebreaker.name))
                 codebreaker.points += 1
+                screen_clear()
+                print("{} has won the round!".format(codebreaker.name))
+                sleep(1.5)
+                screen_clear()
+                self.grid = ""
                 return
 
             print("{} is not {}'s code!\n".format(guess, mastermind.name))
@@ -156,10 +158,11 @@ class MasterMind:
         screen_clear()
         print("{} is out of guesses!\n".format(codebreaker.name) +
               "{}'s code: {}\n\n".format(mastermind.name, solution) +
-              "{} has won the round!".format(mastermind.name)
+              "{} has won this round!".format(mastermind.name)
               )
-        sleep(1)
+        sleep(1.5)
         screen_clear()
+        self.grid = ""
 
     def get_solution(self, player):
         """ generates the Mastermind's solution """
@@ -169,26 +172,32 @@ class MasterMind:
             "   * Your code must be {} digits long.\n\n"
             "{name}'s Mastermind code: "
         ).format(self.code_length, self.max_digit, name=player.name)
-        if self.multiplayer is False:
+        if player.is_cpu is True:
             solution = ""
             for i in range(self.code_length):
                 solution += str(randrange(self.max_digit + 1))
             return solution
 
-        solution = self.get_code(prompt)
+        solution = self.get_code(player, prompt)
         while solution is None:
             print('Invalid code!\n')
-            solution = self.get_code(prompt)
+            solution = self.get_code(player, prompt)
         screen_clear()
         print('Your code has been saved!')
         sleep(1.5)
         screen_clear()
         return solution
 
-    def get_code(self, player):
+    def get_code(self, player, prompt=None):
         """ prompts the user for a code """
 
-        prompt = "{}, enter a {}-digit code: ".format(player, self.code_length)
+        if player.is_cpu is True:
+            sleep(2)
+            return self.get_solution(player)
+
+        if prompt is None:
+            prompt = "{}, enter a {}-digit code: "
+        prompt = prompt.format(player.name, self.code_length)
         code = input(prompt)
         try:
             code = code.split()[0]
@@ -296,7 +305,6 @@ class MasterMind:
         response = input("Play again? (y/n): ").lower()
         if response in ["yes", "y", "Y"]:
             self.grid = ""
-            self.multiplayer = False
             self.single_game = False
             self.mastermind()
         elif response in ["no", "n", "N"]:
@@ -310,7 +318,6 @@ class MasterMind:
     code_length = 4
     max_digit = 9
     allowed_digits = [str(x) for x in range(max_digit + 1)]
-    multiplayer = False
     single_game = False
     guesses_per_round = 12
     choose_player_mode_string = (

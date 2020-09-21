@@ -5,7 +5,6 @@
 Go to a terminal and type the following commands:
 ```
 $ git clone https://github.com/jicruz96/Mastermind-Game-in-Python.git
-...
 $ ./mastermind.py
 ```
 

@@ -3,8 +3,9 @@
 
 from os import name as os_name
 from time import sleep
-from random import randrange
+from random import randrange, sample
 from subprocess import call
+from copy import deepcopy
 
 
 def screen_clear():
@@ -22,6 +23,7 @@ class MasterMind:
             self.name = name
             self.points = 0
             self.is_cpu = cpu
+            self.guess_history = []
 
     def __init__(self):
         """ init """
@@ -106,10 +108,10 @@ class MasterMind:
         current_round = 1
         while current_round <= rounds:
             # TOP INNING
-            self.mastermind_round(p1, p2, current_round)
+            self.mastermind_round(p2, p1, current_round)
             current_round += 0.5
             # BOTTOM INNING
-            self.mastermind_round(p2, p1)
+            self.mastermind_round(p1, p2)
             current_round += 0.5
 
             # INNING SUMMARY
@@ -129,21 +131,32 @@ class MasterMind:
         if round is not None:
             print("Round {}!\n\n".format(round))
 
+        if codebreaker.is_cpu is True:
+            codebreaker.logic = deepcopy(self.a)
+
         print("{} is the Mastermind!".format(mastermind.name))
 
         solution = self.get_solution(mastermind)
         guesses_left = self.guesses_per_round
+        black_pegs = 0
+        white_pegs = 0
+        guess = ""
 
-        while guesses_left > 1:
+        while guesses_left >= 1:
 
             print("Guesses left: {:d}\n".format(guesses_left))
-            guess = self.get_code(codebreaker)
+            if codebreaker.is_cpu is True:
+                codebreaker.guess_history.append(guess)
+                guess = self.get_guess(black_pegs, white_pegs, codebreaker)
+                sleep(0.2)
+            else:
+                guess = self.get_code(codebreaker)
             black_pegs, white_pegs = self.compare_codes(guess, solution)
             self.print_grid(guess, black_pegs, white_pegs)
 
             if black_pegs == self.code_length:
                 codebreaker.points += 1
-                screen_clear()
+                codebreaker.guess_history = []
                 print("{} has won the round!".format(codebreaker.name))
                 sleep(1.5)
                 screen_clear()
@@ -163,6 +176,7 @@ class MasterMind:
         sleep(1.5)
         screen_clear()
         self.grid = ""
+        codebreaker.guess_history = []
 
     def get_solution(self, player):
         """ generates the Mastermind's solution """
@@ -188,11 +202,52 @@ class MasterMind:
         screen_clear()
         return solution
 
+    def get_guess(self, black_pegs, white_pegs, cpu):
+
+        prev_guess = cpu.guess_history[-1]
+
+        if len(prev_guess) == self.code_length:
+            total_pegs = black_pegs + white_pegs
+
+            if total_pegs == 0:
+                for options in cpu.logic.values():
+                    for digit in prev_guess:
+                        if digit in options:
+                            options.remove(digit)
+            elif total_pegs == 4:
+                for options in cpu.logic.values():
+                    for digit in options:
+                        if digit not in prev_guess:
+                            options.remove(digit)
+
+            if black_pegs == 0:
+                for i in range(self.code_length):
+                    if prev_guess[i] in cpu.logic[str(i)]:
+                        cpu.logic[str(i)].remove(prev_guess[i])
+
+                # print("Error! in get_guess")
+                # print("8 seconds puhleaze...")
+                # sleep(5)
+
+        unchecked_nums = [str(i) for i in range(self.max_digit + 1)]
+        for guess in cpu.guess_history:
+            for digit in guess:
+                if digit in unchecked_nums:
+                    unchecked_nums.remove(digit)
+        guess = ""
+        for num in unchecked_nums:
+            guess += num
+            if len(guess) == 4:
+                break
+        while len(guess) < 4:
+            guess += sample(cpu.logic[str(len(guess))], 1)[0]
+        return guess
+
     def get_code(self, player, prompt=None):
         """ prompts the user for a code """
 
         if player.is_cpu is True:
-            sleep(2)
+            sleep(0.2)
             return self.get_solution(player)
 
         if prompt is None:
@@ -221,7 +276,7 @@ class MasterMind:
                     "Invalid code! Only use digits between",
                     "0 and {}\n".format(self.max_digit)
                 )
-                return self.get_code(prompt)
+                return self.get_code(player, prompt)
 
         return code
 
@@ -319,7 +374,7 @@ class MasterMind:
     max_digit = 9
     allowed_digits = [str(x) for x in range(max_digit + 1)]
     single_game = False
-    guesses_per_round = 12
+    guesses_per_round = 30
     choose_player_mode_string = (
         'How many players? Type:\n'
         '   1 for single player\n'
@@ -331,6 +386,9 @@ class MasterMind:
         '   2 for Single Round\n\n'
         'Enter response: '
     )
+    a = {}
+    for i in range(code_length):
+        a.update({str(i): [str(j) for j in range(max_digit + 1)]})
 
 
 if __name__ == "__main__":
